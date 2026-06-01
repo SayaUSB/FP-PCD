@@ -1,7 +1,5 @@
 import numpy as np
 import pytest
-import tempfile
-import os
 from PIL import Image
 
 def test_read_image_returns_rgb_uint8(tmp_path):
