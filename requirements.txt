@@ -1,0 +1,12 @@
+opencv-python
+scikit-image
+scikit-learn
+imbalanced-learn
+numpy
+matplotlib
+streamlit
+joblib
+Pillow
+scipy
+pandas
+pytest
