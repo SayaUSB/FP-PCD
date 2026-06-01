@@ -40,8 +40,8 @@ def apply_gaussian(img: np.ndarray, sigma: float = 1.0) -> np.ndarray:
 
 def apply_matched_filter(
     img: np.ndarray,
-    sigma: float = 2.0,
-    L: int = 9,
+    sigma: float = 1.5,
+    L: int = 15,
     n_angles: int = 12,
 ) -> np.ndarray:
     base = _build_mf_kernel(sigma, L)
@@ -49,18 +49,10 @@ def apply_matched_filter(
     response = np.full_like(img_f, -np.inf)
     for k in range(n_angles):
         angle = k * 180.0 / n_angles
-        rotated = ndimage_rotate(base, angle, reshape=False, order=1).astype(np.float32)
+        rotated = ndimage_rotate(base, angle, reshape=False, order=3).astype(np.float32)
         filtered = cv2.filter2D(img_f, -1, rotated)
         response = np.maximum(response, filtered)
     return response
-
-
-def suppress_bright_blobs(img: np.ndarray, radius: int = 10) -> np.ndarray:
-    # Top-hat: subtract large bright structures (optic disc, bright artefacts)
-    disk_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1))
-    opened = cv2.morphologyEx(img, cv2.MORPH_OPEN, disk_kernel)
-    diff = cv2.subtract(img, opened)
-    return diff
 
 
 def run(
@@ -68,8 +60,7 @@ def run(
     return_intermediates: bool = False,
 ) -> np.ndarray | tuple[np.ndarray, dict]:
     clahe_out = apply_clahe(img)
-    suppressed = suppress_bright_blobs(clahe_out)
-    gauss_out = apply_gaussian(suppressed)
+    gauss_out = apply_gaussian(clahe_out)
     enhanced = apply_matched_filter(gauss_out)
     if return_intermediates:
         return enhanced, {"clahe": clahe_out, "gaussian": gauss_out}
