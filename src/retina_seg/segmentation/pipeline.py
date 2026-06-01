@@ -9,20 +9,21 @@ from skimage.morphology import (
 )
 
 
-def apply_otsu(img: np.ndarray, fov_mask: np.ndarray) -> np.ndarray:
+def apply_otsu(img: np.ndarray, fov_mask: np.ndarray, thresh_scale: float = 0.85) -> np.ndarray:
     img_norm = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
     roi_pixels = img_norm[fov_mask > 0]
-    thresh = threshold_otsu(roi_pixels)
+    # Scale threshold below Otsu to recover thin vessels with weaker response
+    thresh = threshold_otsu(roi_pixels) * thresh_scale
     binary = (img_norm >= thresh).astype(np.uint8) * 255
     binary[fov_mask == 0] = 0
     return binary
 
 
-def morphological_postprocess(binary: np.ndarray, min_area: int = 150) -> np.ndarray:
+def morphological_postprocess(binary: np.ndarray, min_area: int = 50) -> np.ndarray:
     bool_img = binary > 0
     selem = disk(1)
-    opened = opening(bool_img, selem)
-    closed = closing(opened, selem)
+    # Only closing (fills small gaps) — opening removed because it breaks thin vessel connections
+    closed = closing(bool_img, selem)
     cleaned = remove_small_objects(closed, max_size=min_area - 1)
     return (cleaned * 255).astype(np.uint8)
 
