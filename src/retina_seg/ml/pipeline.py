@@ -17,7 +17,7 @@ def extract_features(
     gx = cv2.Sobel(green, cv2.CV_32F, 1, 0)
     gy = cv2.Sobel(green, cv2.CV_32F, 0, 1)
     grad_mag = np.sqrt(gx ** 2 + gy ** 2)
-    lbp = local_binary_pattern(green, P=8, R=1, method="uniform").astype(np.float32)
+    lbp = local_binary_pattern(img_rgb[:, :, 1], P=8, R=1, method="uniform").astype(np.float32)
     lbp_max = lbp.max()
     lbp_norm = lbp / lbp_max if lbp_max > 0 else lbp
     ve_norm = cv2.normalize(vessel_enhanced, None, 0.0, 1.0, cv2.NORM_MINMAX).astype(np.float32)
