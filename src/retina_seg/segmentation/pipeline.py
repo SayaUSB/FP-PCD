@@ -18,7 +18,7 @@ def apply_otsu(img: np.ndarray, fov_mask: np.ndarray) -> np.ndarray:
     return binary
 
 
-def morphological_postprocess(binary: np.ndarray, min_area: int = 50) -> np.ndarray:
+def morphological_postprocess(binary: np.ndarray, min_area: int = 150) -> np.ndarray:
     bool_img = binary > 0
     selem = disk(1)
     opened = opening(bool_img, selem)

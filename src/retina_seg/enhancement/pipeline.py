@@ -55,12 +55,21 @@ def apply_matched_filter(
     return response
 
 
+def suppress_bright_blobs(img: np.ndarray, radius: int = 10) -> np.ndarray:
+    # Top-hat: subtract large bright structures (optic disc, bright artefacts)
+    disk_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1))
+    opened = cv2.morphologyEx(img, cv2.MORPH_OPEN, disk_kernel)
+    diff = cv2.subtract(img, opened)
+    return diff
+
+
 def run(
     img: np.ndarray,
     return_intermediates: bool = False,
 ) -> np.ndarray | tuple[np.ndarray, dict]:
     clahe_out = apply_clahe(img)
-    gauss_out = apply_gaussian(clahe_out)
+    suppressed = suppress_bright_blobs(clahe_out)
+    gauss_out = apply_gaussian(suppressed)
     enhanced = apply_matched_filter(gauss_out)
     if return_intermediates:
         return enhanced, {"clahe": clahe_out, "gaussian": gauss_out}
