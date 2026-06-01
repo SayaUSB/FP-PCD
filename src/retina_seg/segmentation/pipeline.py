@@ -3,8 +3,8 @@ import cv2
 from skimage.filters import threshold_otsu
 from skimage.morphology import (
     remove_small_objects,
-    binary_opening,
-    binary_closing,
+    opening,
+    closing,
     disk,
 )
 
@@ -21,9 +21,9 @@ def apply_otsu(img: np.ndarray, fov_mask: np.ndarray) -> np.ndarray:
 def morphological_postprocess(binary: np.ndarray, min_area: int = 50) -> np.ndarray:
     bool_img = binary > 0
     selem = disk(1)
-    opened = binary_opening(bool_img, selem)
-    closed = binary_closing(opened, selem)
-    cleaned = remove_small_objects(closed, min_size=min_area)
+    opened = opening(bool_img, selem)
+    closed = closing(opened, selem)
+    cleaned = remove_small_objects(closed, max_size=min_area - 1)
     return (cleaned * 255).astype(np.uint8)
 
 
