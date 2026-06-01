@@ -3,7 +3,6 @@ import cv2
 from skimage.filters import threshold_otsu
 from skimage.morphology import (
     remove_small_objects,
-    opening,
     closing,
     disk,
 )
