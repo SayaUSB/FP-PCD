@@ -12,3 +12,4 @@ data/DRIVE/
 data/STARE/
 data/CHASE_DB1/
 .streamlit/
+.venv/
