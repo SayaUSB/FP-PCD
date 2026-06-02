@@ -16,3 +16,4 @@ build/
 .venv/
 .claude/
 .pytest_cache/
+docs/
