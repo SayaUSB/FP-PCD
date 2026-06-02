@@ -1,6 +1,6 @@
 # Retinal Vessel Segmentation — CLAHE + Matched Filter
 
-Segmentasi pembuluh darah retina menggunakan pipeline image processing murni (tanpa deep learning).
+Segmentasi pembuluh darah retina menggunakan pipeline image processing (CLAHE + Matched Filter) dan klasifikasi anomali retina menggunakan Machine Learning (SVM / Random Forest).
 
 ## Pipeline
 
@@ -8,7 +8,33 @@ Segmentasi pembuluh darah retina menggunakan pipeline image processing murni (ta
 RGB Image → Green Channel → FOV Mask → Illumination Correction
          → CLAHE → Gaussian → Matched Filter (12 orientations)
          → Otsu Thresholding → Morphological Post-processing
-         → Binary Segmentation
+         → Binary Vessel Mask
+```
+
+**Klasifikasi Anomali (ML):**
+```
+Vessel Mask → Ekstrak Fitur Vessel → SVM / Random Forest → Normal / Abnormal (DR)
+
+Fitur:
+  • Vessel Density       — rasio pixel vessel terhadap FOV
+  • Mean Vessel Width    — rata-rata lebar vessel via skeletonization
+  • Tortuosity           — rasio panjang lengkung / jarak lurus per segmen
+  • Branching Points     — kepadatan titik percabangan vessel
+  • Fractal Dimension    — kompleksitas pola vessel (box-counting)
+```
+
+## Struktur Proyek
+
+```
+src/retina_seg/
+├── dataset/        — loader untuk CHASE_DB1 dan APTOS 2019
+├── preprocessing/  — green channel, FOV mask, illumination correction
+├── enhancement/    — CLAHE, Gaussian, Matched Filter
+├── segmentation/   — Otsu thresholding, morphological post-processing
+├── evaluation/     — metrik SE/SP/ACC/AUC, overlay visualisasi
+└── ml/             — ekstrak fitur vessel, train/predict SVM & RF
+app.py              — Streamlit demo (3 tab)
+tests/              — 28 unit tests
 ```
 
 ## Installation
@@ -21,40 +47,65 @@ pip install -e .
 
 ## Dataset Setup
 
-Lihat instruksi download di:
-- `data/DRIVE/README.md`
-- `data/STARE/README.md`
-- `data/CHASE_DB1/README.md`
+**Segmentasi vessel (batch evaluation):**
+- CHASE_DB1 — lihat `data/CHASE_DB1/README.md`
 
-## Usage
+**Klasifikasi anomali (ML training):**
+- APTOS 2019 Blindness Detection — download dari:
+  `https://www.kaggle.com/competitions/aptos2019-blindness-detection/data`
+- Ekstrak ke `data/APTOS2019/` dengan struktur:
+  ```
+  data/APTOS2019/
+  ├── train_images/   ← ~3.662 gambar .png
+  └── train.csv       ← kolom: id_code, diagnosis (0–4)
+  ```
 
-**Demo App:**
+## Demo App
+
 ```bash
 streamlit run app.py
 ```
 
-**Python API:**
+| Tab | Fungsi |
+|-----|--------|
+| **Single Image** | Upload gambar → lihat tiap stage pipeline → download segmentasi |
+| **Anomaly Classification (ML)** | Train SVM/RF pakai APTOS 2019 → prediksi Normal/Abnormal |
+| **Batch Evaluation** | Evaluasi CLAHE+MF pada seluruh CHASE_DB1 → tabel SE/SP/ACC/AUC |
+
+## Python API
+
 ```python
 import cv2
 from retina_seg.preprocessing.pipeline import run as preprocess
 from retina_seg.enhancement.pipeline import run as enhance
 from retina_seg.segmentation.pipeline import run as segment
-from retina_seg.evaluation.metrics import evaluate
+from retina_seg.ml.pipeline import extract_image_features, train, predict
 
 img_rgb = cv2.cvtColor(cv2.imread("fundus.jpg"), cv2.COLOR_BGR2RGB)
+
+# Segmentasi vessel
 corrected, fov_mask = preprocess(img_rgb)
 enhanced = enhance(corrected)
-segmented = segment(enhanced, fov_mask)
+vessel_mask = segment(enhanced, fov_mask)
+
+# Klasifikasi anomali (setelah model ditraining)
+features = extract_image_features(vessel_mask, fov_mask)  # shape (5,)
+# model, scaler = train(X, y, method="random_forest")
+# result = predict(model, scaler, vessel_mask, fov_mask)
+# → {"label": 1, "label_str": "Abnormal (DR)", "probability": 0.87, ...}
 ```
 
-## Run All Tests
+## Run Tests
 
 ```bash
 pytest tests/ -v
 ```
 
-## Target Metrics (DRIVE test set)
+## Hasil Evaluasi — CHASE_DB1 (28 gambar)
 
-| SE | SP | ACC | AUC |
-|----|----|-----|-----|
-| ~0.72 | ~0.98 | ~0.957 | ~0.975 |
+| Metrik | Mean | Std |
+|--------|------|-----|
+| SE (Sensitivity) | 0.7687 | ±0.0542 |
+| SP (Specificity) | 0.8463 | ±0.0490 |
+| ACC | 0.8380 | ±0.0399 |
+| AUC | 0.8560 | ±0.0191 |
