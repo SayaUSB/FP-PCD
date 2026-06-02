@@ -8,8 +8,11 @@ build/
 .env
 *.pkl
 *.joblib
-data/DRIVE/
-data/STARE/
-data/CHASE_DB1/
+*.jpg
+*.jpeg
+*.png
+*.ppm
 .streamlit/
 .venv/
+.claude/
+.pytest_cache/
