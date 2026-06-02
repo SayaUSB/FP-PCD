@@ -91,6 +91,37 @@ def load_chase(root: str) -> list[dict]:
     return samples
 
 
+def load_aptos(root: str) -> list[dict]:
+    """
+    APTOS 2019 structure:
+      <root>/train_images/*.png
+      <root>/train.csv  (columns: id_code, diagnosis 0-4)
+    Returns binary label: 0 = normal (grade 0), 1 = abnormal (grade 1-4)
+    """
+    import pandas as pd
+    csv_path = os.path.join(root, "train.csv")
+    img_dir = os.path.join(root, "train_images")
+    df = pd.read_csv(csv_path)
+
+    samples = []
+    for _, row in df.iterrows():
+        img_path = os.path.join(img_dir, f"{row['id_code']}.png")
+        if not os.path.isfile(img_path):
+            continue
+        img = read_image(img_path)
+        h, w = img.shape[:2]
+        samples.append({
+            "name": row["id_code"],
+            "image": img,
+            "mask": _generate_circular_mask(h, w),
+            "gt1": None,
+            "gt2": None,
+            "grade": int(row["diagnosis"]),
+            "label": 0 if int(row["diagnosis"]) == 0 else 1,
+        })
+    return samples
+
+
 def _generate_circular_mask(h: int, w: int, margin_ratio: float = 0.03) -> np.ndarray:
     """Generate a circular FOV mask for datasets without pre-supplied masks."""
     mask = np.zeros((h, w), dtype=np.uint8)

@@ -3,32 +3,49 @@ import pytest
 
 
 @pytest.fixture
-def small_sample():
+def vessel_sample():
     rng = np.random.default_rng(0)
-    img_rgb = rng.integers(50, 200, (64, 64, 3), dtype=np.uint8)
-    vessel_enhanced = rng.random((64, 64)).astype(np.float32)
+    vessel_mask = np.zeros((64, 64), dtype=np.uint8)
+    vessel_mask[20:30, 10:50] = 255
+    vessel_mask[10:50, 30:35] = 255
     fov_mask = np.full((64, 64), 255, dtype=np.uint8)
-    gt = np.zeros((64, 64), dtype=np.uint8)
-    gt[20:30, 20:40] = 255
-    return img_rgb, vessel_enhanced, fov_mask, gt
+    return vessel_mask, fov_mask
 
 
-def test_extract_features_shape(small_sample):
-    from retina_seg.ml.pipeline import extract_features
-    img_rgb, vessel_enhanced, fov_mask, _ = small_sample
-    features = extract_features(img_rgb, vessel_enhanced, fov_mask)
-    n_pixels = int(np.sum(fov_mask > 0))
-    assert features.shape == (n_pixels, 5)
-    assert features.dtype == np.float32
+def test_extract_image_features_shape(vessel_sample):
+    from retina_seg.ml.pipeline import extract_image_features, FEATURE_NAMES
+    vessel_mask, fov_mask = vessel_sample
+    feats = extract_image_features(vessel_mask, fov_mask)
+    assert feats.shape == (len(FEATURE_NAMES),)
+    assert feats.dtype == np.float32
 
 
-def test_train_and_predict_svm(small_sample):
-    from retina_seg.ml.pipeline import extract_features, train, predict
-    img_rgb, vessel_enhanced, fov_mask, gt = small_sample
-    features = extract_features(img_rgb, vessel_enhanced, fov_mask)
-    labels = (gt[fov_mask > 0] > 0).astype(int)
-    model = train(features, labels, method="rf")  # RF is faster for tests
-    pred_mask = predict(model, img_rgb, vessel_enhanced, fov_mask)
-    assert pred_mask.shape == (64, 64)
-    assert pred_mask.dtype == np.uint8
-    assert set(np.unique(pred_mask)).issubset({0, 255})
+def test_train_and_predict(vessel_sample):
+    from retina_seg.ml.pipeline import extract_image_features, train, predict
+    vessel_mask, fov_mask = vessel_sample
+
+    # Build tiny dataset: 10 normal + 10 abnormal
+    rng = np.random.default_rng(1)
+    features, labels = [], []
+    for _ in range(10):
+        m = np.zeros((64, 64), dtype=np.uint8)
+        m[rng.integers(10, 30):rng.integers(31, 50), 10:50] = 255
+        features.append(extract_image_features(m, fov_mask))
+        labels.append(0)
+    for _ in range(10):
+        m = np.zeros((64, 64), dtype=np.uint8)
+        for _ in range(5):
+            r = rng.integers(5, 55)
+            m[r:r+5, 5:60] = 255
+        features.append(extract_image_features(m, fov_mask))
+        labels.append(1)
+
+    X = np.vstack(features)
+    y = np.array(labels)
+    model, scaler = train(X, y, method="random_forest")
+
+    result = predict(model, scaler, vessel_mask, fov_mask)
+    assert "label" in result
+    assert result["label"] in (0, 1)
+    assert 0.0 <= result["probability"] <= 1.0
+    assert "features" in result
